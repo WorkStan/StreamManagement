@@ -1,0 +1,76 @@
+version: "3.9"
+services:
+    antmedia:
+        build:
+            context: ./
+            dockerfile: ./docker/antmedia/Dockerfile
+            args:
+                BranchName: 'master'
+                AntMediaServer: 'ant-media-server-community-2.4.3.zip'
+        container_name: antmedia
+        restart: unless-stopped
+        entrypoint: /usr/local/antmedia/start.sh
+        ports:
+            - '5080:5080'
+        volumes:
+           - antmedia_vol:/usr/local/antmedia/
+
+    postgres:
+        image: postgres:14.2-alpine
+        environment:
+            POSTGRES_USER: developer
+            POSTGRES_PASSWORD: secret
+            POSTGRES_DB: antdb
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        ports:
+            - "54321:5432"
+
+    backend-nginx:
+        build:
+            context: docker/backend/nginx
+            dockerfile: development/Dockerfile
+        ports:
+            - "8081:80"
+        volumes:
+            - ./backend:/app
+        depends_on:
+            -   backend-php-fpm
+
+    backend-php-fpm:
+        build:
+            context: docker/backend/php-fpm
+            dockerfile: development/Dockerfile
+        environment:
+            DB_CONNECTION: pgsql
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_DATABASE: antdb
+            DB_USERNAME: developer
+            DB_PASSWORD: secret
+        volumes:
+            - ./backend:/app
+
+    app-nodejs:
+        image: node:14-alpine
+        working_dir: /app
+        volumes:
+            - ./backend:/app
+
+    backend-php-cli:
+        build:
+            context: docker/backend/php-cli
+            dockerfile: development/Dockerfile
+        environment:
+            DB_CONNECTION: pgsql
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_DATABASE: antdb
+            DB_USERNAME: developer
+            DB_PASSWORD: secret
+        volumes:
+            - ./backend:/app
+
+volumes:
+    postgres_data:
+    antmedia_vol:
